@@ -1,0 +1,11 @@
+[package]
+name = "flux-dtl"
+version = "0.1.0"
+edition = "2021"
+description = "Flux DTL settlement binary"
+publish = false
+
+[dependencies]
+
+[dev-dependencies]
+serde_json = "1.0"
