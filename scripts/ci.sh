@@ -7,14 +7,14 @@ cd "$ROOT_DIR"
 WINDOWS_ROOT=""
 if command -v wslpath >/dev/null 2>&1 \
   && command -v powershell.exe >/dev/null 2>&1 \
-  && powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "exit 0" >/dev/null 2>&1; then
+  && powershell.exe -NoProfile -Command "exit 0" >/dev/null 2>&1; then
   WINDOWS_ROOT="$(wslpath -w "$ROOT_DIR" 2>/dev/null || true)"
 fi
 
 run_powershell() {
   local command="$1"
   local escaped_root="${WINDOWS_ROOT//\'/\'\'}"
-  powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-Location -LiteralPath '$escaped_root'; $command"
+  powershell.exe -NoProfile -Command "Set-Location -LiteralPath '$escaped_root'; $command"
 }
 
 run_cargo() {
@@ -40,7 +40,10 @@ run_node() {
 }
 
 run_cargo fmt --all -- --check
+run_node ./node_modules/prettier/bin/prettier.cjs --check --config .prettierrc --ignore-path .prettierignore "**/*.{js,mjs,json,md,yml}"
+run_node scripts/check-js.mjs
 run_cargo build --all-targets --locked
-run_cargo test --locked
+run_cargo test --all-targets --locked
+run_node scripts/run-node-tests.mjs
 run_cargo clippy --all-targets --all-features --locked -- -D warnings
-run_node --test "tests/node/*.test.js"
+run_node scripts/verify-release.mjs
