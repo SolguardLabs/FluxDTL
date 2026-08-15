@@ -1,76 +1,125 @@
-# Seguridad
+# Política de seguridad de FluxDTL
 
-Flux DTL esta disenado como un laboratorio de liquidacion diferida con una
-arquitectura modular y controles explicitos de riesgo. El sistema representa
-un protocolo profesional de batch settlement con lanes, epochs, vaults,
-oraculo, ordenes, fees y creditos de liquidez.
+FluxDTL aplica seguridad por capas al ciclo de cotización, encolado,
+autorización y liquidación. La política cubre el núcleo Rust, el SDK, la
+configuración de CI y los artefactos asociados a una publicación.
 
-## Modelo De Seguridad
+## Modelo de confianza
 
-El protocolo aplica varias capas de control:
-
-- registro de activos habilitados con decimales y parametros de riesgo;
-- vaults vinculados a un unico activo y modo operativo;
-- lanes configuradas con activos, vaults, operador, fees y limites;
-- precios de oraculo con umbral minimo de confianza;
-- ordenes asociadas a epoch, lane, owner, recipient, importe y salida minima;
-- bloqueo de liquidez de entrada antes de encolar una orden;
-- autorizacion de riesgo antes de ejecutar pagos;
-- limites de notional por epoch y lane;
-- limites de residual y utilizacion del vault destino;
-- eventos de ejecucion para trazabilidad operativa.
-
-## Invariantes Esperadas
-
-Durante una operacion normal se espera que:
-
-- una lane solo opere con vaults del activo configurado;
-- un asset deshabilitado no pueda usarse para nuevas rutas;
-- una orden pendiente solo pueda liquidarse una vez;
-- el output del recipient respete `min_out`;
-- el vault origen bloquee fondos antes de aceptar la orden;
-- el vault destino tenga liquidez suficiente antes del pago;
-- los fees se acrediten al operador de la lane;
-- los rebates y creditos operativos se contabilicen de forma determinista;
-- el epoch refleje las operaciones incluidas en el batch;
-- el motor de riesgo autorice la operacion antes de mover balances.
-
-## Validacion Automatizada
-
-La validacion de CI ejecuta:
-
-```bash
-cargo fmt --all -- --check
-cargo build --all-targets --locked
-cargo test --locked
-cargo clippy --all-targets --all-features --locked -- -D warnings
-node --test "tests/node/*.test.js"
+```mermaid
+flowchart TB
+    subgraph Entrada["Dominio de entrada"]
+        Client["Cliente"]
+        Config["Configuración de lane"]
+        Feed["Precio y confianza"]
+    end
+    subgraph Core["Núcleo determinista"]
+        Validate["Validación de identidad y estado"]
+        Quote["Cálculo entero"]
+        Guard["Límites de riesgo"]
+        Commit["Transición de ledger"]
+    end
+    subgraph Evidence["Dominio de evidencia"]
+        Events["Eventos"]
+        Epoch["Acumuladores de época"]
+        CI["Verificación reproducible"]
+    end
+    Client --> Validate
+    Config --> Validate
+    Feed --> Quote
+    Validate --> Quote --> Guard --> Commit
+    Commit --> Events
+    Commit --> Epoch
+    CI -. valida .-> Core
 ```
 
-Los mismos comandos estan centralizados en `scripts/ci.sh`.
+Las entradas se consideran no confiables hasta validar existencia, estado,
+relación entre identificadores y límites cuantitativos. Los precios incorporan
+un indicador de confianza, las operaciones monetarias son comprobadas y las
+bóvedas separan reserva total de importe bloqueado.
 
-## Gestion De Dependencias
+## Controles obligatorios
 
-Las dependencias Rust quedan fijadas en `Cargo.lock`. El proyecto no requiere
-dependencias JavaScript para ejecutar la suite Node actual. Dependabot revisa
-Cargo, npm y GitHub Actions semanalmente.
+- Solo se aceptan activos registrados y habilitados.
+- Las bóvedas de una ruta deben corresponder a sus activos de origen y destino.
+- Una orden debe pertenecer a una época abierta y a una ruta activa.
+- La cotización debe satisfacer `min_out` en aceptación y ejecución.
+- La confianza del precio debe superar el mínimo configurado.
+- La entrada queda bloqueada antes de incorporarse al lote.
+- El límite de nocional, residual y utilización se evalúa antes del pago.
+- Una orden liquidada no vuelve a procesarse.
+- Sumas, restas, productos y divisiones monetarias fallan de forma cerrada.
+- Cada publicación conserva versiones, activos y referencias Git verificables.
 
-## Reporte De Incidencias
+## Matriz de superficies
 
-Para revisiones internas, documenta cualquier hallazgo con:
+| Superficie        | Riesgo principal                     | Control verificable                           |
+| ----------------- | ------------------------------------ | --------------------------------------------- |
+| Orden             | repetición o estado inválido         | `nonce`, estado pendiente y `OrderId` único   |
+| Precio            | dato ausente o de baja confianza     | `PricePoint` y umbral por ruta                |
+| Bóveda            | pago superior a disponibilidad       | `available`, `lock`, `pay` y resta comprobada |
+| Época             | acumulación fuera de ventana         | estado abierto/cerrado y límites por ruta     |
+| Tesorería         | déficit o concentración excesiva     | cobertura estresada y bandas operativas       |
+| Automatización    | comando colgado o salida incorrecta  | tiempo máximo y validación de esquema         |
+| Cadena de entrega | divergencia entre código y artefacto | CI matricial, hashes y referencias alineadas  |
 
-- descripcion tecnica reproducible;
-- impacto economico u operativo;
-- archivos y funciones afectadas;
-- precondiciones necesarias;
-- pasos de reproduccion;
-- resultado esperado frente a resultado observado;
-- propuesta de mitigacion;
-- comandos de verificacion.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant O as Operador
+    participant M as Monitor
+    participant T as Tesorería
+    participant G as Gobierno operativo
+    M->>T: cobertura, confianza y concentración
+    T-->>M: band + métricas por activo
+    alt healthy
+        M-->>O: continuar ventanas
+    else watch
+        M-->>O: reducir capacidad y revisar reservas
+    else constrained
+        M->>G: escalar y limitar nuevas órdenes
+    else halted
+        M->>G: detener admisión y activar reconciliación
+    end
+```
 
-## Alcance
+## Supuestos y límites
 
-El alcance de revision incluye el binario Rust, la suite Rust, la suite Node,
-los scripts de CI y GitHub Actions. Quedan fuera despliegues reales, claves
-privadas, infraestructura externa, redes de produccion y dependencias de
-servicios no presentes en este repositorio.
+El proceso confía en que la gobernanza suministra precios con procedencia
+autorizada, mantiene las claves operativas fuera del repositorio y asigna
+controladores coherentes a las bóvedas. El núcleo no abre puertos, no administra
+secretos ni realiza llamadas de red. La integración con custodia, firma,
+mensajería y persistencia debe imponer autenticación, autorización, rotación y
+auditoría propias.
+
+## Gestión de secretos
+
+No se deben confirmar claves privadas, frases de recuperación, tokens, datos
+de clientes ni credenciales de infraestructura. Los consumidores deben usar un
+gestor de secretos, credenciales de duración limitada y permisos mínimos. Los
+logs deben registrar identificadores técnicos, nunca material de firma.
+
+## Respuesta ante incidentes
+
+1. Detener la admisión de nuevas órdenes en las rutas afectadas.
+2. Conservar eventos, configuración, commit, versión y salidas de verificación.
+3. Reconciliar órdenes pendientes, reservas, bloqueos y pagos por época.
+4. Delimitar activos, bóvedas y ventanas implicadas.
+5. Aplicar una corrección revisada con pruebas de regresión.
+6. Publicar una versión nueva y verificar la alineación de referencias.
+7. Reabrir capacidad de forma gradual tras una revisión independiente.
+
+## Comunicación responsable
+
+Los informes de seguridad deben enviarse mediante la función privada de
+GitHub Security Advisories del repositorio. Incluye versión y commit, impacto,
+precondiciones, secuencia mínima reproducible, resultado observado, resultado
+esperado y propuesta de corrección. No publiques detalles operativos antes de
+que exista una actualización disponible.
+
+## Versiones admitidas
+
+| Versión | Estado                 |
+| ------- | ---------------------- |
+| `1.0.x` | mantenida              |
+| `<1.0`  | fuera de mantenimiento |
