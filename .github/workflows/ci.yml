@@ -1,10 +1,12 @@
 name: CI
 
 on:
-    push:
-        branches:
-            - main
-            - production
+  push:
+    branches:
+      - main
+      - production
+    tags:
+      - "v*"
     pull_request:
 
 concurrency:
