@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,11 +7,16 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 export const projectRoot = resolve(currentDir, "../..");
 
 export function runFlux(args = []) {
-    return execFileSync("cargo", ["run", "--quiet", "--", ...args], {
+    const result = spawnSync("cargo", ["run", "--quiet", "--", ...args], {
         cwd: projectRoot,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
+        timeout: 30_000,
+        maxBuffer: 4 * 1024 * 1024,
     });
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout;
 }
 
 export function runFluxError(args = []) {
@@ -19,8 +24,11 @@ export function runFluxError(args = []) {
         cwd: projectRoot,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
+        timeout: 30_000,
+        maxBuffer: 4 * 1024 * 1024,
     });
 
+    assert.equal(result.error, undefined);
     assert.notEqual(result.status, 0);
     return result;
 }
