@@ -1,8 +1,8 @@
 [package]
 name = "flux-dtl"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
-description = "Flux DTL settlement binary"
+description = "Motor determinista de compensación y liquidación multi-activo"
 publish = false
 
 [dependencies]

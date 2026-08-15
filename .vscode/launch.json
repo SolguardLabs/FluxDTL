@@ -1,33 +1,47 @@
 {
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Flux DTL demo",
-      "type": "lldb",
-      "request": "launch",
-      "cargo": {
-        "args": ["build", "--bin", "flux-dtl"],
-        "filter": {
-          "name": "flux-dtl",
-          "kind": "bin"
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Flux DTL demo",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": ["build", "--bin", "flux-dtl"],
+                "filter": {
+                    "name": "flux-dtl",
+                    "kind": "bin"
+                }
+            },
+            "args": ["demo"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Flux DTL demo JSON",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": ["build", "--bin", "flux-dtl"],
+                "filter": {
+                    "name": "flux-dtl",
+                    "kind": "bin"
+                }
+            },
+            "args": ["demo-json"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Flux DTL treasury stress",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": ["build", "--bin", "flux-dtl"],
+                "filter": {
+                    "name": "flux-dtl",
+                    "kind": "bin"
+                }
+            },
+            "args": ["stress-json"],
+            "cwd": "${workspaceFolder}"
         }
-      },
-      "args": ["demo"],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "name": "Flux DTL demo JSON",
-      "type": "lldb",
-      "request": "launch",
-      "cargo": {
-        "args": ["build", "--bin", "flux-dtl"],
-        "filter": {
-          "name": "flux-dtl",
-          "kind": "bin"
-        }
-      },
-      "args": ["demo-json"],
-      "cwd": "${workspaceFolder}"
-    }
-  ]
+    ]
 }
