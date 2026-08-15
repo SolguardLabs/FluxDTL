@@ -5,6 +5,8 @@ on:
         branches:
             - main
             - production
+        tags:
+            - "v*"
     pull_request:
 
 concurrency:
